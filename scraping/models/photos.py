@@ -4,16 +4,13 @@
 from django.db import models
 from django.utils import timezone as tz
 from datetime import datetime as dt
-from tumblpy import Tumblpy
-from tumblpy.exceptions import TumblpyError
-from api_keys import TUMBLR as TUMBLR_KEYS
-import scraping.models.sources as sources
+from scraping.models import Source
 
 
 class Photo(models.Model):
 
     # The source the photo came from
-    source = models.ForeignKey(sources.Source)
+    source = models.ForeignKey(Source, null=True)
     # The url of the photo post or page.
     post_url = models.URLField(max_length=200, default='')
     # The url of the photo itself.
@@ -72,6 +69,7 @@ class Photo(models.Model):
             else:
                 instance.caption = post_caption
             instance.likes = likes
+            instance.source = source
             photos.append({'photo': photo, 'raw tags': tags})
         return photos
 
