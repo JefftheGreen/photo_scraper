@@ -4,4 +4,4 @@
 from django.contrib import admin
 from scraping.models import *
 
-admin.site.register([TumblrBlog, Photo, Tag, Word, WordAssociation])
+admin.site.register([Source, TumblrBlog, Photo, Tag, Word, WordAssociation])
