@@ -11,10 +11,6 @@ from api_keys import TUMBLR as TUMBLR_KEYS
 
 class Source(models.Model):
 
-    class Meta:
-
-        abstract = True
-
     # The human-readable name of the source
     name = models.CharField(max_length=200, default='')
     # The url of the source. E.g. the blog url for a tumblr blog
