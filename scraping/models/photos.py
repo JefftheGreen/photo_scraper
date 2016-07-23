@@ -70,7 +70,7 @@ class Photo(models.Model):
                 instance.caption = post_caption
             instance.likes = likes
             instance.source = source
-            photos.append({'photo': photo, 'raw tags': tags})
+            photos.append({'photo': instance, 'raw tags': tags})
         return photos
 
     # Creates, saves, and assigns Tag instances to self.tags

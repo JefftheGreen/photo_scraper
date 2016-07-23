@@ -5,7 +5,7 @@ from django.db import models
 from django.utils import timezone as tz
 from datetime import datetime as dt
 from tumblpy import Tumblpy
-from scraping import models.photos
+import scraping.models
 from tumblpy.exceptions import TumblpyError
 from api_keys import TUMBLR as TUMBLR_KEYS
 
@@ -92,7 +92,7 @@ class TumblrBlog(Source):
         self.last_scraped = tz.now()
         # Create photos from posts
         for post in posts:
-            photos = models.photos.Photo.from_tumblr_api(post, self)
+            photos = scraping.models.photos.Photo.from_tumblr_api(post, self)
             for photo_data in photos:
                 photo = photo_data['photo']
                 raw_tags = photo_data['raw tags']
