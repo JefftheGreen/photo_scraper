@@ -10,10 +10,11 @@ from tumblpy import Tumblpy
 from api_keys import *
 from django.db import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist
+from utilities.cmd_line import trunc_print
 
 
 class Command(BaseCommand):
-    help = "Scrapes sources for content"
+    help = "Manages sources"
 
     def add_arguments(self, parser):
         parser.add_argument('-a', '--add', nargs="+", type=str)
@@ -28,8 +29,9 @@ class Command(BaseCommand):
         if options['remove'] is not None:
             self.remove(options['remove'])
 
-    def add(self, sources):
-        for source_string in sources:
+    # Add a photo source
+    def add(self, to_add):
+        for source_string in to_add:
             source_url = self.get_url(source_string)
             if source_url:
                 tumblr_blog = source_url['type'].from_api(source_url['url'])
@@ -44,13 +46,14 @@ class Command(BaseCommand):
                     except ObjectDoesNotExist:
                         raise
 
-    def remove(self, sources):
-        if sources:
-            for source_string in sources:
+    def remove(self, to_remove):
+        if to_remove:
+            for source_string in to_remove:
                 source_url = self.get_url(source_string)['url']
                 if source_url:
                     if TumblrBlog.objects.filter(url=source_url).exists():
                         blog = TumblrBlog.objects.get(url=source_url)
+                        self.delete_blog(blog)
         else:
             [self.delete_blog(b) for b in TumblrBlog.objects.all()]
 
@@ -61,9 +64,9 @@ class Command(BaseCommand):
             blog.delete()
             print('Deleted Tumblr blog {}\n'.format(name))
 
-    def info(self, sources):
-        if sources:
-            for source_string in sources:
+    def info(self, to_describe):
+        if to_describe:
+            for source_string in to_describe:
                 source_url = self.get_url(source_string)['url']
                 if source_url:
                     if TumblrBlog.objects.filter(url=source_url).exists():
@@ -72,11 +75,26 @@ class Command(BaseCommand):
         else:
             [self.print_info(b) for b in TumblrBlog.objects.all()]
 
-    def print_info(self, blog):
-        print('\nName:\t\t', blog.name, '\nURL:\t\t', blog.url,
-              '\nLast scraped:\t', blog.last_scraped,
-              '\nDescription:\t', blog.description, '\nPhotos:\t\t',
-              Photo.objects.filter(source=blog).count(), '\n')
+    def print_info(self, to_describe):
+        cleaned_description = to_describe.description.split('\n')[0]
+        # Check if ever been scraped. (I.e. time scraped should be after epoch)
+        scraped = to_describe.last_scraped < tz.make_aware(dt.fromtimestamp(0))
+        photo_num = str(Photo.objects.filter(source=to_describe).count())
+        info = ('',
+                # Blog's name
+                'Name:\t\t' + to_describe.name,
+                # The URL
+                'URL:\t\t' + to_describe.url,
+                # The date scraped, if ever, else 'Never'
+                'Last scraped:\t' + (str(to_describe.last_scraped)
+                                     if scraped else 'Never'),
+                # The first line of the description
+                'Description:\t' + cleaned_description,
+                # Number of photos
+                'Photos:\t\t' + photo_num,
+                '')
+        # Print the info, truncated so each entry fits on one line
+        trunc_print(*info)
 
     def get_url(self, string):
         # Check if it matches a tumblr url pattern
