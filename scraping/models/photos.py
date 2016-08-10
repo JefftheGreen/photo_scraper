@@ -7,6 +7,7 @@ from datetime import datetime as dt
 from scraping.models import Source
 from collections import defaultdict
 from nltk import pos_tag
+from nltk.stem import WordNetLemmatizer
 import re
 
 
@@ -97,17 +98,19 @@ class Photo(models.Model):
         # TODO: Make it skip most common words
         words = defaultdict(lambda: 0)
         # Split caption and label parts of speech with NLTK
-        for word_str, tag in pos_tag(self.caption.split(), tagset='universal'):
+        for word_str, pos in pos_tag(self.caption.split(), tagset='universal'):
             # Only use adjectives, adverbs, nouns, verbs, and unknown
-            if tag in ['ADJ', 'ADV', 'NOUN', 'VERB', 'X']:
+            if pos in ['ADJ', 'ADV', 'NOUN', 'VERB', 'X']:
                 # Remove HTMl tags
                 word_str = re.sub('<[^>]*>', '', word_str)
                 # Remove non-letter characters
                 word_str = re.sub('[^a-zA-Z]+', '', word_str).lower()
+                # Lemmatize
+                word_str = Word.lemmatize(word_str)
                 # Increment count of word
                 words[word_str] += 1
-        for tag in self.tags.all():
-            for word in tag.words.all():
+        for pos in self.tags.all():
+            for word in pos.words.all():
                 words[word.word_str] += 1
         for word_str, strength in words.items():
             # If word exists, get it
@@ -178,8 +181,10 @@ class Tag(models.Model):
         return self.tag_str
 
     def make_words(self):
+        # TODO: Make it skip most common words
         if self.words.all().count() == 0:
             for tag_word in self.tag_str.split(' '):
+                tag_word = Word.lemmatize(tag_word)
                 if Word.objects.filter(word_str=tag_word).exists():
                     word = Word.objects.get(word_str=tag_word)
                 else:
@@ -194,6 +199,16 @@ class Word(models.Model):
 
     def __str__(self):
         return self.word_str
+
+    @staticmethod
+    def lemmatize(string):
+        pos = pos_tag([string], tagset='universal')[0][1]
+        pos = {'NOUN': 'n', 'VERB': 'v', 'ADJ': 'a', 'ADV': 'r'}.get(pos)
+        if pos:
+            l = WordNetLemmatizer()
+            return l.lemmatize(string, pos)
+        else:
+            return string
 
 
 class Ngram(models.Model):
@@ -210,17 +225,20 @@ class Ngram(models.Model):
         ngram = cls()
         ngram.save()
         split_str = str.split()
-        # Every word position in string. Using range because we need the order
-        for w in range(0, len(split_str)):
+        # Every word position in string. Using enumerate because we need the
+        # order.
+        for i, w in enumerate(split_str):
+            # Lemmatize
+            w = Word.lemmatize(w)
             # Get word if it exists
-            if Word.objects.filter(word_str=split_str[w]).exists():
-                word = Word.objects.get(word_str=split_str[w])
+            if Word.objects.filter(word_str=w).exists():
+                word = Word.objects.get(word_str=w)
             # Make it if it doesn't
             else:
-                word = Word(word_str=split_str[w])
+                word = Word(word_str=w)
                 word.save()
             # Make association
-            association = NgramAssociation(word=word, ngram=ngram, order=w)
+            association = NgramAssociation(word=word, ngram=ngram, order=i)
             association.save()
         # Update the expression of the ngram
         ngram.update_expression()
